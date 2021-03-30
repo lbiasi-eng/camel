@@ -7,15 +7,15 @@ import javax.persistence.Id;
 public class Account {
 
 	@Id
-	private String id;
+	private Long id;
 	private String name;
 	private String surname;
 
-	public String getId() {
+	public Long getId() {
 		return id;
 	}
 
-	public void setId(String id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 
@@ -33,6 +33,11 @@ public class Account {
 
 	public void setSurname(String surname) {
 		this.surname = surname;
+	}
+
+	@Override
+	public String toString() {
+		return id + "\t" + name + "\t" + surname;
 	}
 
 }
