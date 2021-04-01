@@ -3,6 +3,8 @@ package com.example.demo.processor;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.bind.Name;
 import org.springframework.stereotype.Component;
 
 import com.example.demo.dao.AccountRepository;
