@@ -1,5 +1,7 @@
 package com.example.demo;
 
+import com.example.demo.dao.AccountRepository;
+import com.example.demo.entity.Account;
 import com.example.demo.route.KafkaRoute;
 import org.apache.camel.*;
 import org.apache.camel.builder.AdviceWithRouteBuilder;
@@ -11,6 +13,7 @@ import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.test.spring.CamelSpringBootRunner;
 import org.apache.camel.test.spring.MockEndpoints;
 import org.apache.camel.test.spring.UseAdviceWith;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,24 +22,31 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import javax.swing.text.html.Option;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RunWith(CamelSpringBootRunner.class)
-@SpringBootTest(classes = {DemoApplication.class})
+@SpringBootTest(classes = {DemoApplication.class, H2TestProfileJPAConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@MockEndpoints("direct:*")
+@MockEndpoints
 @UseAdviceWith
 @ActiveProfiles("test")
 public class KafkaRouteTest {
+
     @Autowired
     CamelContext camelContext;
 
     @Produce
-    ProducerTemplate mockKafkaProducer;
+    ProducerTemplate producerTemplate;
 
     @EndpointInject(uri = "mock:stream:out")
     MockEndpoint finalSink;
+
+    @Autowired
+    AccountRepository repository;
+
 
     @Before
     public void setUp() throws Exception{
@@ -47,9 +57,19 @@ public class KafkaRouteTest {
                     @Override
                     public void configure() throws Exception {
                         replaceFromWith("direct:kafka-from");
+//                        interceptSendToEndpoint("stream:out")
+//                                .to("mock:stream:out");
                     }
                 });
+        camelContext.start();
+
     }
+
+    @After
+    public void tearDown() throws Exception {
+        camelContext.stop();
+    }
+
     @Test
     public void testKafkaRoute() throws Exception {
 
@@ -60,12 +80,15 @@ public class KafkaRouteTest {
         Exchange exchange = ExchangeBuilder.anExchange(camelContext).withBody(body).build();
 
         //Send mock message to the route
-        mockKafkaProducer.sendBodyAndHeaders("direct:kafka-from", exchange, headers);
+        producerTemplate.send("direct:kafka-from", exchange);
 
+        Optional<Account> expectedAccount =  repository.findById(102L);
+        assert(expectedAccount.isPresent());
+        String expectedBody = expectedAccount.get().toString();
 
         //Assertions. You may do additional assertions with the likes of Mockito
-        finalSink.expectedBodiesReceived(body);
-        finalSink.expectedHeaderReceived(KafkaConstants.TOPIC, "logs");
+        finalSink.setExpectedMessageCount(1);
+        finalSink.message(0).body().isEqualTo(expectedBody);
         finalSink.assertIsSatisfied();
 
     }

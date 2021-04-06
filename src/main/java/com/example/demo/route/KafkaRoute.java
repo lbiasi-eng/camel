@@ -10,6 +10,7 @@ import com.example.demo.processor.StoreProcessor;
 @Component
 public class KafkaRoute extends RouteBuilder {
 
+	public static final String KAFKA_ROUTE_NAME = "kafka-router";
 	final String kafkaSource = "kafka:{{producer.topic}}?brokers={{kafka.bootstrap.url}}&keyDeserializer=org.apache.kafka.common.serialization.StringDeserializer&valueDeserializer=org.apache.kafka.common.serialization.StringDeserializer";
 
 	@Autowired
@@ -21,9 +22,12 @@ public class KafkaRoute extends RouteBuilder {
 	@Override
 	public void configure() throws Exception {
 
-		from(kafkaSource).process(store)
+		from(kafkaSource)
+				.routeId(KAFKA_ROUTE_NAME)
+				.process(store)
 				.process(read)
 				.to("stream:out");
+				//.to("stream:out");
 	}
 
 }
