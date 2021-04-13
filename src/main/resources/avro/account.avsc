@@ -1,0 +1,10 @@
+{
+    "type":"record",
+    "name":"Account",
+    "namespace":"com.example.demo.beans",
+    "fields":[
+        {"name":"id","type":"long"},
+        {"name":"name","type":"string"},
+        {"name":"surname","type":"string"}
+    ]
+}
