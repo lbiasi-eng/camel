@@ -1,5 +1,8 @@
 package com.example.demo.route;
 import com.example.demo.beans.Account;
+import com.example.demo.exceptions.HystrixRecoverableException;
+import com.example.demo.processor.DeleteProcessor;
+import com.example.demo.processor.FallbackProcessor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.kafka.KafkaConstants;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,18 +23,44 @@ public class KafkaRoute extends RouteBuilder {
 	@Autowired
 	ReadProcessor read;
 
+	@Autowired
+	DeleteProcessor delete;
+
+	@Autowired
+	FallbackProcessor fallbackProcessor;
+
 	@Override
 	public void configure() throws Exception {
 
-		String loggerStr = String.format("Received message:  ${in.body} with key: ${in.header.%s} " +
-				"and partition: ${in.header.%s} and offset: ${in.header.%s}",
-				KafkaConstants.KEY, KafkaConstants.PARTITION, KafkaConstants.OFFSET);
-
-		from(kafkaSource)
+		from("timer://foo?period=1000000000")
+				.setBody(constant("Hi This is Avro example"))
 				.routeId(KAFKA_ROUTE_NAME)
-				.log(loggerStr)
-				.unmarshal().avro(Account.class.getName())
-				.to("stream:out");
+				.onException(Exception.class)
+					.handled(true)
+					.log("Reject message")
+				.end()
+				.onException(HystrixRecoverableException.class)
+					.handled(true)
+					.maximumRedeliveries(-1)
+					.redeliveryDelay(1000)
+				.end()
+
+				.hystrix()
+					.inheritErrorHandler(true)
+					.hystrixConfiguration()
+						.executionIsolationStrategy("SEMAPHORE")
+						.executionTimeoutEnabled(true)
+						.circuitBreakerSleepWindowInMilliseconds(10000)
+						.circuitBreakerErrorThresholdPercentage(50)
+						.circuitBreakerRequestVolumeThreshold(10)
+					.end()
+
+					.log("Execution inside the hystrix")
+					.process(delete)
+					.onFallback().process(fallbackProcessor)
+				.end()
+				.log("Out of hystrix");
+
 	}
 
 }
